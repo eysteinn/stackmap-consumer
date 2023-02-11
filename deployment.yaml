@@ -1,0 +1,58 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackmap-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stackmap-consumer
+  template: 
+    metadata:
+      labels:
+        app: stackmap-consumer
+    spec:
+      containers:
+        - name: stackmap-consumer
+          image: stackmap-consumer:latest
+          imagePullPolicy: Never
+          env:
+          - name: PSQL_HOST
+            value: postgresql.default.svc.cluster.local
+          - name: PSQL_USER
+            value: postgres
+          - name: PSQL_DB
+            value: postgres 
+          - name: PSQL_PASS
+            valueFrom:
+              secretKeyRef:
+                name: postgresql
+                key: postgres-password
+          volumeMounts:
+            # name must match the volume name below
+            - name: nfs
+              mountPath: "/data/"
+      volumes:
+       - name: nfs
+         persistentVolumeClaim:
+           claimName: nfs
+       
+---
+
+
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: stackmap-consumer
+#spec:
+#  type: ClusterIP
+#  selector:
+#    app: stackmap-consumer
+    #ports:
+    #- protocol: TCP
+    #  port: 4003
+    #  targetPort: 3000
+    #  #nodePort: 3000
+
+

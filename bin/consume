@@ -1,0 +1,67 @@
+#!/bin/sh
+
+DATADIR=/data/
+
+
+infile=$1
+datetime=$2
+product=$3
+outfile=$4 
+
+[ -z "${PSQL_USER}" ] || [ -z "${PSQL_PASS}" ] || [ -z "${PSQL_HOST}" ] || [ -z "${PSQL_DB}" ] && { echo "PSQL_USER, PSQL_PASS, PSQL_HOST, PSQL_DB need to be set."; }
+
+[ -n "$infile" ] || { echo "missing parameter 'infile'"; exit 1; }
+[ -n "$datetime" ] || { echo "missing parameter 'datetime'"; exit 2; }
+[ -n "$product" ] || { echo "missing parameter 'product'"; exit 3; }
+[ -n "$outfile" ] || { outfile=$(basename $infile); }
+
+
+echo "Using outfile: $outfile"
+
+echo "Using input file(s): $infile"
+
+tmpdir=$(mktemp -d) || exit $?
+trap "rm -rf $tmpdir" EXIT
+
+echo "Using tmpdir: $tmpdir"
+
+mkdir -p $DATADIR/raster/$product
+
+gdalinfo $infile | grep -iq "GCP Projection" > /dev/null
+if [ "$?" -eq "0" ]; then
+   echo "GCP found, reprojecting to epsg:4326"
+   gdalwarp -t_srs EPSG:4326 -of vrt $infile $tmpdir/out.vrt
+   gdal_translate -co compress=LZW -co "TILED=YES" $tmpdir/out.vrt $DATADIR/raster/$product/$outfile
+   rm -f $tmpdir/out.vrt
+else
+   cp -p $infile $DATADIR/raster/$product/$outfile
+fi
+
+cd $DATADIR
+#Create shape file.  Put source projection into 'src_srs' field
+gdaltindex -t_srs EPSG:4326 -src_srs_name src_srs $tmpdir/index.shp raster/$product/$outfile > /dev/null 2>&1
+#Add date column and value to shape file
+ogrinfo $tmpdir/index.shp -sql "ALTER TABLE index ADD COLUMN datetime character(20)"  > /dev/null 2>&1
+ogrinfo $tmpdir/index.shp -dialect SQLite -sql "UPDATE 'index' SET 'datetime'='"$datetime"'" > /dev/null 2>&1
+
+ogrinfo $tmpdir/index.shp -sql "ALTER TABLE index ADD COLUMN product character(254)" > /dev/null 2>&1
+ogrinfo $tmpdir/index.shp -dialect SQLite -sql "UPDATE 'index' SET 'product'='"$product"'" > /dev/null 2>&1
+
+sqlcmd=$(shp2pgsql -d -s EPSG:4326 -a $tmpdir/index.shp raster_geoms ${PSQL_DB})
+sqlcmd="${sqlcmd} SELECT currval(pg_get_serial_sequence('raster_geoms','gid'));"
+echo "inserting into DB"
+gid=$(psql -t postgresql://${PSQL_USER}:${PSQL_PASS}@${PSQL_HOST}:5432/${PSQL_DB} -c "$sqlcmd")
+echo "GID: >${gid}<"
+
+#$BINDIR/update_times $product > $BINDIR/../mapfiles/times_${product}.map
+#sed "s/<product>/${product}/g; s/<PSQL_HOST>/${PSQL_HOST}/g; s/<PSQL_DB>/${PSQL_DB}/g; s/<PSQL_USER>/${PSQL_USER}/g; s/<PSQL_PASS>/${PSQL_PASS}/g" $BINDIR/../etc/template.map > $BINDIR/../mapfiles/product_${product}.map
+#for file in $BINDIR/../mapfiles/product_*; do
+#  echo "INCLUDE \"$(basename $file)\"" >> ${tmpdir}/products.map #$BINDIR/../mapfiles/products.map
+#done
+#mv $tmpdir/products.map $BINDIR/../mapfiles/
+
+#$BINDIR/notify_rabbitmq ${tmpdir}/index.shp
+
+#$BINDIR/create_html $product
+
+echo "Finished consuming."
