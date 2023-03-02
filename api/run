@@ -1,0 +1,3 @@
+export POSTGRES_PASSWORD=$(kubectl get secret --namespace default postgresql -o jsonpath="{.data.postgres-password}" | base64 -d)
+
+docker run --rm -it --network host -e "PGPASSWORD=$POSTGRES_PASSWORD" -v $(pwd)/src:/src -v $(pwd)/data:/app/data test /bin/sh

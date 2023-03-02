@@ -1,0 +1,15 @@
+product: viirs-granule-true-color
+timestamp: "2022-03-02T10:20:30Z"
+file:
+  web:
+    url: "https://brunnur.vedur.is/pub/eysteinn/viirs-granule-true-color_20230222T183723.tiff"
+    type: "tiff"
+  #local:
+  #  path: "/app/data/viirs-granule-true-color_20221123T142204.tiff"
+  ftp:
+    filename: "viirs-granule-true-color_20221123T142204.tiff"
+    username: "some"
+    password: "asdf"
+geo:
+  spatialRef: 
+  shape: 
