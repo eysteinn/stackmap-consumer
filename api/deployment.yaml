@@ -20,6 +20,8 @@ spec:
           env:
           - name: PSQL_HOST
             value: postgresql.default.svc.cluster.local
+          - name: PSQL_PORT
+            value: "5432"
           - name: PSQL_USER
             value: postgres
           - name: PSQL_DB
@@ -29,6 +31,14 @@ spec:
               secretKeyRef:
                 name: postgresql
                 key: postgres-password
+          - name: RABBITMQ_HOST
+            value: stackmap-rabbitmq.default.svc.cluster.local
+          - name: RABBITMQ_PASS
+            valueFrom:
+              secretKeyRef:
+                name: stackmap-rabbitmq
+                key: rabbitmq-password
+
           volumeMounts:
             # name must match the volume name below
             - name: nfs

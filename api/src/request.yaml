@@ -1,3 +1,4 @@
+---
 product: viirs-granule-true-color
 timestamp: "2022-03-02T10:20:30Z"
 file:
@@ -11,5 +12,5 @@ file:
     username: "some"
     password: "asdf"
 geo:
-  spatialRef: 
+  SRS: ""
   shape: 

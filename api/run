@@ -1,3 +1,10 @@
+kubectl port-forward svc/postgresql 5432:5432 &
+kubectl port-forward svc/stackmap-rabbitmq 5672:5672 &
+
+export RABBITMQ_PASS=$(kubectl get secret --namespace default stackmap-rabbitmq -o jsonpath="{.data.rabbitmq-password}" | base64 -d)
 export POSTGRES_PASSWORD=$(kubectl get secret --namespace default postgresql -o jsonpath="{.data.postgres-password}" | base64 -d)
 
-docker run --rm -it --network host -e "PGPASSWORD=$POSTGRES_PASSWORD" -v $(pwd)/src:/src -v $(pwd)/data:/app/data test /bin/sh
+docker run --rm -it --network host -e "PSQL_PASS=$POSTGRES_PASSWORD" -e "RABBITMQ_PASS=$RABBITMQ_PASS"  --env-file=docker.env -v $(pwd)/src:/src -v $(pwd)/data:/app/data test /bin/sh
+
+kill $(jobs -p)
+

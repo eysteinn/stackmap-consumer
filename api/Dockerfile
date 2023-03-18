@@ -10,7 +10,8 @@ WORKDIR /app/src
 ENV PATH /go/bin:$PATH
 COPY src/ /app/src/
 RUN go build -o main main.go
-CMD exec /bin/sh -c "trap : TERM INT; sleep 9999999999d & wait"
+CMD ./main
+#CMD exec /bin/sh -c "trap : TERM INT; sleep 9999999999d & wait"
 
 # We want to populate the module cache based on the go.{mod,sum} files.
 #COPY go.mod .
