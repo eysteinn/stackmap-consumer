@@ -20,8 +20,6 @@ import (
 
 	"database/sql"
 
-	"github.com/cridenour/go-postgis"
-
 	"github.com/lukeroth/gdal"
 
 	"test/utils"
@@ -119,20 +117,18 @@ type Shape struct {
 }
 
 func NewShape4325(inputFile string) (*Shape, error) {
-	//inputFile := "/app/data/viirs-granule-true-color_20221123T142204.tiff"
 	ds, err := gdal.Open(inputFile, gdal.ReadOnly)
 	if err != nil {
-		//log.Fatal(err)
 		return nil, err
 	}
 	defer ds.Close()
 
 	tfm := ds.GeoTransform()
 
-	source := gdal.CreateSpatialReference(ds.Projection()) // .SpatialReference()
+	source := gdal.CreateSpatialReference(ds.Projection())
 	defer source.Release()
 
-	target := gdal.CreateSpatialReference("") //.SpatialReference{}
+	target := gdal.CreateSpatialReference("")
 	target.FromEPSG(4326)
 	defer target.Release()
 	target.SetAxisMappingStrategy(gdal.OAMS_TraditionalGisOrder)
@@ -149,10 +145,6 @@ func NewShape4325(inputFile string) (*Shape, error) {
 	xpoints[3], ypoints[3] = transf(tfm, 0, ds.RasterYSize())
 	xpoints[4], ypoints[4] = transf(tfm, 0, 0)
 
-	/*for idx := 0; idx < npts; idx++ {
-		fmt.Println("(X, Y) = ", xpoints[idx], " ", ypoints[idx])
-	}*/
-
 	zpoints := [npts]float64{}
 	for idx := 0; idx < npts; idx++ {
 		zpoints[idx] = 0
@@ -165,77 +157,22 @@ func NewShape4325(inputFile string) (*Shape, error) {
 			npts:  npts,
 		},
 		nil
-	//fmt.Println(ds.GetGeoTransform())
 }
 
-/*func CreateSQLCmd(location string, obj *ConsumerObject) string { // src string, timestamp time.Time, product string, shape *Shape) string {
-	shape := obj.Geo.Shape
-
-	npts := shape.npts
-
-	pair := make([]string, npts)
-
-	for idx := 0; idx < npts; idx++ {
-		pair[idx] = fmt.Sprintf("%v %v", shape.X_geo[idx], shape.Y_geo[idx])
-	}
-	pairs := strings.Join(pair[:], ", ")
-	//values := fmt.Sprintf("'%s', '%s',)
-	cmd := fmt.Sprintf("insert into raster_geoms (location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))'));",
-		location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, pairs)
-	//+pairs +")))'));"
-
-	return cmd
-}*/
-
-func test1() {
-	point := postgis.PointS{4326, -84.5014, 39.1064}
-	fmt.Println(">", point)
-
-	/*passw, ok := os.LookupEnv("POSTGRES_PASSWORD")
-	if !ok {
-		log.Fatal(errors.New("Missing POSTGRES_PASSWORD in environment"))
-	}*/
-	passw := ""
-	conn := fmt.Sprintf("host=localhost user=postgres password=%s dbname=postgres port=9920 sslmode=disable", passw)
-
-	db, err := sql.Open("postgres", conn)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = db.Ping()
-	if err != nil {
-		log.Fatal(err)
-	}
-	var newPoint postgis.PointS
-
-	db.QueryRow("SELECT GeomFromEWKB($1);", point).Scan(&newPoint)
-	fmt.Printf(">>%v  %v\n", point, newPoint)
-}
 func GetLocation(obj *ConsumerObject) string {
 	filename := filepath.Base(obj.File.Local.Path)
 	return filepath.Join(rasterpath, obj.Product, filename)
 }
 
 func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
-	//cmd := CreateSQLCmd(GetLocation(obj), obj)
-	//fmt.Println(cmd)
 	fmt.Println("Using password: ", passw)
 
-	//conn := fmt.Sprintf("host=localhost user=postgres password=%s dbname=postgres port=9920 sslmode=disable", passw)
-	//conn := fmt.Sprintf("host=localhost user=postgres password=%s dbname=postgres port=9920 sslmode=disable", passw)
 	conn := Psql.GetConnectionString()
 	fmt.Println("Connecting to db: ", conn)
 	db, err := sql.Open("postgres", conn)
 	if err != nil {
 		log.Fatal(err)
 	}
-	//fmt.Println("Trying ping")
-	/*err = db.Ping()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Ping works!!!")*/
 
 	shape := obj.Geo.Shape
 
@@ -243,23 +180,14 @@ func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
 
 	pair := make([]string, npts)
 
-	//points := make([]postgis.Point, npts)
-
 	for idx := 0; idx < npts; idx++ {
 		pair[idx] = fmt.Sprintf("%v %v", shape.X_geo[idx], shape.Y_geo[idx])
-		//points[idx] = postgis.Point{X: shape.X_geo[idx], Y: shape.Y_geo[idx]}
 	}
 	pairs := strings.Join(pair[:], ",")
-	//values := fmt.Sprintf("'%s', '%s',)
-	//fmt.Println("Pairs: ", pairs)
-	//location := GetLocation(obj)
 
 	cmd := fmt.Sprintf("insert into raster_geoms (location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))'));",
 		location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, pairs)
-	//cmd := "insert into raster_geoms (location, src_srs, datetime, product, geom) values ($1, $2, $3, $4, ST_GeomFromText('MULTIPOLYGON ((($5)))'))"
-
-	//fmt.Println("Cmd: ", cmd)
-	res, err := db.Exec(cmd) //, location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, pairs)
+	res, err := db.Exec(cmd)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		return err
@@ -271,25 +199,9 @@ func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
 	if err != nil {
 		return err
 	}
-	/*cmd := fmt.Sprintf("insert into raster_geoms (location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))'));",
-	location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, pairs)*/
-	//+pairs +")))'));"
-
-	/*	var newPoint postgis.PointS
-
-		db.QueryRow("SELECT GeomFromEWKB($1);", point).Scan(&newPoint)
-		fmt.Printf(">>%v  %v\n", point, newPoint)*/
 	return nil
 }
 func downloadFile(out *os.File, url string) (err error) {
-
-	// Create the file
-	/*out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()*/
-
 	// Get the data
 	resp, err := http.Get(url)
 	if err != nil {
@@ -312,24 +224,7 @@ func downloadFile(out *os.File, url string) (err error) {
 }
 
 func ProcessRequest(obj *ConsumerObject) error {
-	/*content, err := os.ReadFile("request.yaml")
-	if err != nil {
-		return err
-	}
 
-	//fmt.Println(string(content), "\n\n\n")
-	//obj := ConsumerObject{}
-
-	err = yaml.Unmarshal(content, &obj)
-	if err != nil {
-		return err
-	}*/
-
-	/*b, err := yaml.Marshal(obj)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(b))*/
 	var filepath string
 	var fileext string
 	if obj.File.Web != nil {
@@ -345,13 +240,10 @@ func ProcessRequest(obj *ConsumerObject) error {
 		}
 		fileext = obj.File.Web.Type
 
-		//obj.File.Local.Path = outfile.Name()
 		filepath = outfile.Name()
 		fmt.Println("Download successful to ", filepath)
 
 		defer os.Remove(outfile.Name())
-		/*fmt.Println(outfile.Name())
-		os.Exit(0)*/
 
 	}
 
@@ -359,13 +251,12 @@ func ProcessRequest(obj *ConsumerObject) error {
 		filepath = obj.File.Local.Path
 	}
 	fmt.Println("Filepath: ", filepath)
-	if obj.Geo.Shape == nil { //|| len(obj.Geo.Shapes) == 0 {
+	if obj.Geo.Shape == nil {
 		fmt.Println("Getting shape from:  ", filepath)
-		shape, err := NewShape4325(filepath) //obj.File.Local.Path)
+		shape, err := NewShape4325(filepath)
 		if err != nil {
 			return err
 		}
-		//obj.Geo.Shapes = []Shape{*shape}
 		obj.Geo.Shape = shape
 
 		ds, err := gdal.Open(filepath, gdal.ReadOnly)
@@ -374,16 +265,13 @@ func ProcessRequest(obj *ConsumerObject) error {
 		}
 		defer ds.Close()
 
-		source := gdal.CreateSpatialReference(ds.Projection()) // .SpatialReference()
-		obj.Geo.SRS, err = source.ToProj4()                    //.ToWKT()
+		source := gdal.CreateSpatialReference(ds.Projection())
+		obj.Geo.SRS, err = source.ToProj4()
 		if err != nil {
 			return err
 		}
-		//obj.Geo.SRS = ds.Projection()
-		//fmt.Println("SRS: ", obj.Geo.SRS)
 	}
 
-	//product := obj.Product
 	timestamp := obj.Timestamp
 	uuid := uuid.New()
 
@@ -406,10 +294,6 @@ func ProcessRequest(obj *ConsumerObject) error {
 	if err != nil {
 		return err
 	}
-	/*err = os.Rename(obj.File.Local.Path, outfile)
-	if err != nil {
-		return err
-	}*/
 	err = utils.CopyFile(filepath, fullpath)
 	if err != nil {
 		return err
@@ -434,7 +318,6 @@ func GetUrl(obj *ConsumerObject) string {
 	ur_lon := tmpX[len(tmpX)-1]
 
 	bbox := fmt.Sprintf("%v,%v,%v,%v", ll_lat, ll_lon, ur_lat, ur_lon)
-	//host := fmt.Sprintf("http://localhost:9080/cgi-bin/mapserv?program=mapserv&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=-1000000.0,-1000000.0,1600000.0,2000000.0&CRS=AUTO2:42003,1,-18.0,55.0&WIDTH=1024&HEIGHT=768&LAYERS=%s&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true&TIME=%s", obj.Product, obj.Timestamp.UTC().Format(time.RFC3339))
 	url := fmt.Sprintf("http://localhost:9080/cgi-bin/mapserv?program=mapserv&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=%s&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=%s&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true&TIME=%s", bbox, obj.Product, obj.Timestamp.UTC().Format(time.RFC3339))
 	return url
 }
@@ -442,7 +325,7 @@ func Run() error {
 
 	filename := os.Args[1]
 	fmt.Println("Processing file: ", filename)
-	content, err := os.ReadFile(filename) //"request.yaml")
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
@@ -452,19 +335,6 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-
-	/*_, err := gdal.GetDriverByName("GTiff")
-	if err != nil {
-		log.Fatal(err.Error())
-	}*/
-	/*inputFile := "/app/data/viirs-granule-true-color_20221123T142204.tiff"
-
-	shape, err := NewShape4325(inputFile)
-	sql := CreateSQLCmd(shape, time.Now(), "viirs-granule-true-color")
-	if err != nil {
-		log.Fatal(err)
-	}*/
-	//test1()
 	fmt.Println("Filling psql struct")
 	Psql.TryFill()
 	fmt.Println("running: process request")

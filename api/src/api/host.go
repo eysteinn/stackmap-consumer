@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"test/prog"
 	"time"
@@ -80,6 +81,36 @@ func SendRabbitMQReport(obj *prog.ConsumerObject) error {
 	log.Printf(" [x] Sent %s", string(body))
 	return nil
 }
+
+func ParseURL(obj *prog.ConsumerObject, val url.Values) error {
+	var err error
+
+	timestr := val.Get("timestamp")
+	if timestr != "" {
+		obj.Timestamp, err = time.Parse("20060102T150405", timestr)
+		if err != nil {
+			return err
+		}
+	}
+	obj.Product = val.Get("product")
+
+	file_web_url := val.Get("file.web.url")
+	file_web_type := val.Get("file.web.type")
+	if file_web_url != "" && file_web_type != "" {
+		web := prog.Web{}
+		web.Url = file_web_url
+		web.Type = file_web_type
+		obj.File.Web = &web
+	}
+
+	file_local_path := val.Get("file.local.path")
+	if file_local_path != "" {
+		local := prog.Local{}
+		local.Path = val.Get("file.local.path")
+		obj.File.Local = &local
+	}
+	return nil
+}
 func upload(respones http.ResponseWriter, request *http.Request) {
 	/*
 		Example:
@@ -89,34 +120,10 @@ func upload(respones http.ResponseWriter, request *http.Request) {
 	//log.Fatal(err)
 
 	obj := prog.ConsumerObject{}
-	var err error
-
-	timestr := request.URL.Query().Get("timestamp")
-	if timestr != "" {
-		obj.Timestamp, err = time.Parse("20060102T150405", timestr)
-		if err != nil {
-			request.Response.StatusCode = 404
-			//log.Fatal(err)
-			return
-		}
-	}
-	qval := request.URL.Query()
-	obj.Product = qval.Get("product")
-
-	file_web_url := qval.Get("file.web.url")
-	file_web_type := qval.Get("file.web.type")
-	if file_web_url != "" && file_web_type != "" {
-		web := prog.Web{}
-		web.Url = file_web_url
-		web.Type = file_web_type
-		obj.File.Web = &web
-	}
-
-	file_local_path := qval.Get("file.local.path")
-	if file_local_path != "" {
-		local := prog.Local{}
-		local.Path = qval.Get("file.local.path")
-		obj.File.Local = &local
+	err := ParseURL(&obj, request.URL.Query())
+	if err != nil {
+		request.Response.StatusCode = 404
+		return
 	}
 
 	geo := prog.Geo{}
@@ -127,10 +134,7 @@ func upload(respones http.ResponseWriter, request *http.Request) {
 		log.Fatal(err)
 	}
 	fmt.Println(string(b))
-	/*request.URL.Query().Get("product")
-	param1 := r.URL.Query().Get("param1")
-	*/
-	//io.WriteString(respones, string(b))
+
 	fmt.Println("Processing request")
 	err = prog.ProcessRequest(&obj)
 	fmt.Println("Returning with error: ", err)
