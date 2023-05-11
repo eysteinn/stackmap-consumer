@@ -1,3 +1,4 @@
 /data
 bin/test
 api/data
+api/*env

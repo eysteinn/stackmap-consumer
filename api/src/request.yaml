@@ -1,5 +1,6 @@
 ---
 product: viirs-granule-true-color
+project: vedur
 timestamp: "2022-03-02T10:20:30Z"
 file:
   web:

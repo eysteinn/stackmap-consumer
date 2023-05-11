@@ -18,6 +18,8 @@ spec:
           image: stackmap-consumer:latest
           imagePullPolicy: Never
           env:
+          - name: MAPDATA_ROOT
+            value: /data/
           - name: PSQL_HOST
             value: postgresql.default.svc.cluster.local
           - name: PSQL_PORT
@@ -58,18 +60,18 @@ spec:
 ---
 
 
-#apiVersion: v1
-#kind: Service
-#metadata:
-#  name: stackmap-consumer
-#spec:
-#  type: ClusterIP
-#  selector:
-#    app: stackmap-consumer
-    #ports:
-    #- protocol: TCP
-    #  port: 4003
-    #  targetPort: 3000
-    #  #nodePort: 3000
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackmap-consumer
+spec:
+  type: ClusterIP
+  selector:
+    app: stackmap-consumer
+  ports:
+  - protocol: TCP
+    port: 3333
+    targetPort: 3333
+    #nodePort: 3000
 
 
