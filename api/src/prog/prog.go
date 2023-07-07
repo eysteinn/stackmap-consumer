@@ -92,7 +92,7 @@ func (p *PSQL) GetConnectionString() string {
 	return conn
 }
 
-func (p *PSQL) TryFill() {
+func (p *PSQL) TryFill() error {
 	p.Host = os.Getenv("PSQL_HOST")
 	p.User = os.Getenv("PSQL_USER")
 	p.DB = os.Getenv("PSQL_DB")
@@ -110,11 +110,12 @@ func (p *PSQL) TryFill() {
 	}
 
 	if p.Host == "" || p.User == "" || p.DB == "" || p.Pass == "" {
-		log.Fatal(errors.New("Unable to grap credentials for PSQL"))
+		return errors.New("Unable to grap credentials for PSQL")
 	}
 	if p.Port == "" {
 		p.Port = "5432"
 	}
+	return nil
 }
 
 var Psql PSQL

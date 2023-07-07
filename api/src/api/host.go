@@ -147,6 +147,9 @@ func uploadPost(response http.ResponseWriter, request *http.Request) {
 		fmt.Println("Form is nil")
 		return
 	}
+	for k := range multipartFormData.File {
+		fmt.Println("Key: ", k)
+	}
 
 	if files, ok := multipartFormData.File["request"]; ok && len(files) > 0 {
 		file, err := files[0].Open()
@@ -265,8 +268,8 @@ func uploadPost(response http.ResponseWriter, request *http.Request) {
 		errorResp(err, response)
 		return
 	}
+	response.WriteHeader(http.StatusCreated)
 	response.Write(b)
-
 	response.Write([]byte("\n"))
 	response.Write([]byte(prog.GetUrl(&obj) + "\n"))
 }
@@ -313,8 +316,10 @@ func delete(respones http.ResponseWriter, request *http.Request) {
 }
 func Run() {
 
-	prog.Psql.TryFill()
-
+	err := prog.Psql.TryFill()
+	if err != nil {
+		log.Println(err)
+	}
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
 
@@ -324,7 +329,7 @@ func Run() {
 	mux.HandleFunc("/upload", upload)
 	mux.HandleFunc("/delete", delete)*/
 	fmt.Println("Starting to listen")
-	err := http.ListenAndServe(":3333", mux)
+	err = http.ListenAndServe(":3333", mux)
 	if err != nil {
 		log.Panic(err)
 	}
