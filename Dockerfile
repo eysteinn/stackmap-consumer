@@ -6,7 +6,7 @@ RUN apk add postgis
 
 #COPY bin /app/bin
 COPY bin/consume /usr/local/bin
-COPY data /app/data
+#COPY data /app/data
 
 WORKDIR /app
 
