@@ -1,12 +1,7 @@
 BUILDVERSION:=latest
 DOCKERIMAGE:=stackmap-consumer:$(BUILDVERSION)
 
-#get-docs:
-#	go get -u github.com/swaggo/swag/cmd/swag
-
-#docs: get-docs
-#	swag init --dir cmd/api --parseDependency --output docs
-#.PHONY: kind-load
+.PHONY: kind-load
 .PHONY: build-docker
 
 #build:
@@ -18,14 +13,17 @@ DOCKERIMAGE:=stackmap-consumer:$(BUILDVERSION)
 #test:
 #	go test -v ./test/...
 
-build-docker: 
+build-docker: build
 	docker build . -t $(DOCKERIMAGE)
 
-run-docker: build-docker
-	docker run --rm -it $(DOCKERIMAGE)
+#run-docker: build-docker
+	#export POSTGRES_PASSWORD=$(kubectl get secret --namespace default postgresql -o jsonpath="{.data.postgres-password}" | base64 -d) && docker run --rm -it --network host -e "PGPASSWORD=$POSTGRES_PASSWORD" -v $(pwd)/src:/src -v $(pwd)/data:/app/data test /bin/sh
 
-#port-forward:
-#	kubectl port-forward svc/postgresql 5432:5432
+port-forward:
+	kubectl port-forward svc/postgresql 5432:5432
+
+kind-delete: 
+	kubectl delete deployments/stackmap-consumer
 
 kind-load: build-docker
 	kind load docker-image $(DOCKERIMAGE)
@@ -33,11 +31,8 @@ kind-load: build-docker
 kind-deploy: kind-load
 	kubectl apply -f deployment.yaml 
 
-k3s-deploy:
-	docker save $(DOCKERIMAGE) | sudo k3s ctr images import -
-
 #swagger-build:
 #	swagger generate spec -i ./swagger/swagger_base.yaml -o ./swagger.yaml
 
-#swagger-serve:
-#	cd swagger && swagger serve --flatten --port=9009 -F=swagger swagger.yaml
+swagger-serve:
+	cd swagger && swagger serve --flatten --port=9009 -F=swagger swagger.yaml
