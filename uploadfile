@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Upload file on the format "{product}_{datetime:YYmmddTMMHH}.tiff
+
+file=$1
+
+prod=$(basename $file .tiff | cut -d'_' -f1)
+timestamp=$(basename $file .tiff | cut -d'_' -f2)
+
+echo "File: $file"
+echo "Product: $prod"
+echo "Timestamp: $timestamp"
+
+curl -X POST -F "image=@$file" "http://localhost:3333/upload?project=vedur&product=${prod}&timestamp=${timestamp}"
+
