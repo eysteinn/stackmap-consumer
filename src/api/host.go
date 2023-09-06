@@ -393,10 +393,11 @@ func Run() {
 
 	mux.Get("/upload", html)
 	mux.Post("/upload", uploadPost)
-
-	mux.Route("/projects/{project}/files", func(r chi.Router) {
+	mux.Get("/projects/{project}/files", files.GetHandler)
+	mux.Delete("/projects/{project}/files/{uuid}", files.DeleteHandle)
+	/*mux.Route("/projects/{project}/files", func(r chi.Router) {
 		r.Delete("/{uuid}", files.DeleteHandle)
-	})
+	})*/
 	//mux.Delete("/files", deleteFile) make this dynamic /files/{uuid}
 	/*mux := http.NewServeMux()
 	mux.HandleFunc("/upload", upload)
