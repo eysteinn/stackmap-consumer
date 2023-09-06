@@ -29,6 +29,11 @@ const (
 )
 
 /*
+Images with GCP (corner values?) need to be transformed into a image with valid projection.
+https://stackoverflow.com/questions/63874859/convert-png-to-geotiff-with-gdal
+*/
+
+/*
 insert into raster_geoms (location, src_srs, datetime, product, geom) values ('loc1','somesrc','2022-01-01T10:22','prod', ST_GeomFromText('MULTIPOLYGON (((24.0538073758627 37.7378703845543,24.0539640433116 37.7379275964686,24.0539663216762 37.7378701532806,24.0538073758627 37.7378703845543)))'));
 */
 type Web struct {
@@ -55,12 +60,14 @@ type ConsumerObject struct {
 		Local  *Local `yaml:"local"`
 		Web    *Web   `yaml:"web"`
 		Binary []byte `yaml:"-"`
+		Name   string `yaml:"name"`
 		/*Web *struct {
 			Url  string `yaml:"url"`
 			Type string `yaml:"type"`
 		} `yaml:"web"`*/
 	}
-	Geo Geo `yaml:"geo"`
+	Geo  Geo    `yaml:"geo"`
+	UUID string `yaml:"uuid"`
 }
 
 func (o *ConsumerObject) Validate() error {
@@ -191,6 +198,7 @@ func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("Conenction established")
 
 	shape := obj.Geo.Shape
 
@@ -203,20 +211,64 @@ func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
 	}
 	pairs := strings.Join(pair[:], ",")
 
-	cmd := fmt.Sprintf("insert into project_%s.raster_geoms (location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))'));",
+	cmd := fmt.Sprintf("insert into project_%s.raster_geoms (location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))')) returning uuid;",
 		obj.Project, location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, pairs)
-	res, err := db.Exec(cmd)
+	fmt.Println("Executing query")
+	fmt.Println(cmd)
+	//res, err := db.Exec(cmd)
+	/*ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*1))
+	defer cancel()
+	res, err := db.ExecContext(ctx, cmd)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		return err
 	}
+
 	fmt.Println("Exec worked")
 	ra, err := res.RowsAffected()
 	fmt.Println("Rows affected: ", ra)
 
 	if err != nil {
 		return err
+	}*/
+	/*tx, err := db.Begin()
+	if err != nil {
+		return err
 	}
+	fmt.Println("A")*/
+	/*cmd := fmt.Sprintf("INSERT into project_%s.raster_geoms (location, src_srs, datetime, product, geom) values ($1, $2, $3, $4, $5) returning uuid;", obj.Project)
+	fmt.Println(cmd)
+	stmt, err := tx.Prepare(cmd)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	uuid := ""
+	fmt.Println("1")
+	err = stmt.QueryRow(location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, "ST_GeomFromText('MULTIPOLYGON ((("+pairs+")))')").Scan(&uuid)
+	if err != nil {
+		return err
+	}
+	fmt.Println("2")
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	fmt.Println("3")*/
+
+	rows, err := db.Query(cmd)
+	defer rows.Close()
+	for rows.Next() {
+		var uuid string
+		if err := rows.Scan(&uuid); err != nil {
+			log.Fatal(err)
+		}
+		obj.UUID = uuid
+		fmt.Println(uuid)
+	}
+	//tx.Commit()
+
 	return nil
 }
 func downloadFile(out *os.File, url string) (err error) {
@@ -352,11 +404,11 @@ func ProcessRequest(obj *ConsumerObject) error {
 		return err
 	}
 
-	fmt.Println(GetUrl(obj))
+	//fmt.Println(GetUrl(obj))
 	return nil
 }
 
-func GetUrl(obj *ConsumerObject) string {
+func GetWMSUrl(obj *ConsumerObject, host string) string {
 
 	tmpX := append(make([]float64, 0, len(obj.Geo.Shape.X_geo)), obj.Geo.Shape.X_geo...)
 	tmpY := append(make([]float64, 0, len(obj.Geo.Shape.Y_geo)), obj.Geo.Shape.Y_geo...)
@@ -371,8 +423,11 @@ func GetUrl(obj *ConsumerObject) string {
 	ur_lon := tmpX[len(tmpX)-1]
 
 	bbox := fmt.Sprintf("%v,%v,%v,%v", ll_lat, ll_lon, ur_lat, ur_lon)
-	url := fmt.Sprintf("http://localhost:9080/cgi-bin/mapserv?program=mapserv&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=%s&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=%s&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true&TIME=%s", bbox, obj.Product, obj.Timestamp.UTC().Format(time.RFC3339))
-	return url
+	//http://localhost:9080/?map=/mapfiles/vedur/rasters.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=44.67992280194039,-48.1384265209119,57.90268443794766,-2.745601176530886&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=viirs-granule-true-color&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true
+	//url := fmt.Sprintf("http://localhost:9080/cgi-bin/mapserv?program=mapserv&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=%s&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=%s&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true&TIME=%s", bbox, obj.Product, obj.Timestamp.UTC().Format(time.RFC3339))
+
+	ret := fmt.Sprintf("%s/services/wms?map=/mapfiles/%s/rasters.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=%s&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=%s&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true&TIME=%s", host, obj.Project, bbox, obj.Product, obj.Timestamp.UTC().Format(time.RFC3339))
+	return ret
 }
 func Run() error {
 

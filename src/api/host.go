@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,14 +10,20 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
+	files "test/api/files"
 	"test/prog"
 	"time"
+
+	_ "embed"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"gopkg.in/yaml.v3"
 )
+
+//go:embed post.html
+var post_html []byte
 
 type RabbitMQNotification struct {
 	Product   string `yaml:"product"`
@@ -35,6 +42,8 @@ func SendRabbitMQReport(obj *prog.ConsumerObject) error {
 	host := os.Getenv("RABBITMQ_HOST")
 	url := fmt.Sprintf("amqp://user:%s@%s:5672/", passw, host)
 	fmt.Println("Connecting to: ", url)
+	/*dialer := amqp.DefaultDial(time.Duration(time.Second * 1))
+	conn, err := dialer("tcp", url)*/
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return err
@@ -95,8 +104,12 @@ func ParseURL(obj *prog.ConsumerObject, val url.Values) error {
 			return err
 		}
 	}
-	obj.Product = val.Get("product")
-	obj.Project = val.Get("project")
+	if val.Has("product") {
+		obj.Product = val.Get("product")
+	}
+	if val.Has("project") {
+		obj.Project = val.Get("project")
+	}
 
 	file_web_url := val.Get("file.web.url")
 	file_web_type := val.Get("file.web.type")
@@ -132,148 +145,202 @@ func getFilesize(file multipart.File) (size int64, err error) {
 	_, err = file.Seek(0, os.SEEK_SET)
 	return
 }
+
+func PostMultipartFormData(response http.ResponseWriter, request *http.Request) ([]prog.ConsumerObject, error) {
+
+	ret := make([]prog.ConsumerObject, 0)
+
+	request.ParseMultipartForm(10 << 20) // 10 MB
+
+	fmt.Println("PostForm: ", request.PostForm)
+
+	product := ""
+	project := ""
+	timestr := ""
+	for k, v := range request.PostForm {
+		if k == "product" && len(v) > 0 {
+			product = v[0]
+		}
+		if k == "project" && len(v) > 0 {
+			project = v[0]
+		}
+		if k == "time" && len(v) > 0 {
+			timestr = v[0]
+		}
+		//fmt.Println("PostFormValueKey: ", k, "  ", v)
+	}
+
+	multipartFormData := request.MultipartForm
+
+	if files, ok := multipartFormData.File["image"]; ok && len(files) > 0 {
+		for idx := range files {
+			obj := prog.ConsumerObject{}
+			obj.Geo = prog.Geo{}
+
+			obj.Product = product
+			obj.Project = project
+			if timestr != "" {
+				layout := "2006-01-02T15:04"
+				if parsedTime, err := time.Parse(layout, timestr); err == nil {
+					obj.Timestamp = parsedTime
+				}
+			}
+			obj.File.Name = files[idx].Filename
+
+			fmt.Println("Receiving file: ")
+			fmt.Println("\tName: ", obj.File.Name)
+			fmt.Println("\tTime: ", timestr, "  (", obj.Timestamp, ")")
+
+			file, err := files[idx].Open()
+			if err != nil {
+				errorResp(err, response)
+				return nil, err
+			}
+
+			defer file.Close()
+			size, err := getFilesize(file)
+
+			if err != nil {
+				errorResp(err, response)
+				return nil, err
+			}
+			fmt.Println("\tSize: ", size)
+
+			buf := make([]byte, size)
+
+			n, err := file.Read(buf)
+			if err != nil {
+				errorResp(err, response)
+				return nil, err
+
+			}
+			obj.File.Binary = buf
+			fmt.Printf("Read %v bytes\n", n)
+
+			ret = append(ret, obj)
+		}
+	}
+	return ret, nil
+}
+
+type ResultObj struct {
+	Product  string     `yaml:"product" json:"product"`
+	Project  string     `yaml:"project" json:"project"`
+	DateTime *time.Time `yaml:"time,omitempty" json:"time,omitempty"`
+	WMS_url  string     `yaml:"wms_url" json:"wms_url"`
+	WMTS_url string     `yaml:"wmts_url" json:"wmts_url"`
+	Error    string     `yaml:"error,omitempty" json:"error,omitempty"`
+	Success  bool       `yaml:"success" json:"success"`
+	Filename string     `yaml:"filename" json:"filename"`
+	UUID     string     `yaml:"uuid" json:"uuid"`
+}
+
+func addObjects(objs []prog.ConsumerObject, host string) ([]*ResultObj, error) {
+	var err error
+	ret := make([]*ResultObj, 0, len(objs))
+	for _, obj := range objs {
+		res := ResultObj{
+			Product:  obj.Product,
+			Project:  obj.Project,
+			DateTime: &obj.Timestamp,
+			Success:  false,
+		}
+		ret = append(ret, &res)
+		if err = obj.Validate(); err != nil {
+			res.Error = fmt.Sprint("%v", err)
+			fmt.Println(err)
+			continue
+		}
+		err = prog.ProcessRequest(&obj)
+		if err != nil {
+			//res.Error = "Internal error"
+			fmt.Println(err)
+			//continue
+		}
+		err = SendRabbitMQReport(&obj)
+		if err != nil {
+			//res.Error = "Internal error"
+			fmt.Println(err)
+			//continue
+		}
+		res.Success = true
+		res.UUID = obj.UUID
+		res.WMS_url = prog.GetWMSUrl(&obj, host)
+		fmt.Println(res.WMS_url)
+		fmt.Println("HOST: ", host)
+		res.Filename = obj.File.Name
+
+	}
+	return ret, nil
+}
+func JSONMarshal(t interface{}) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(t)
+	return buffer.Bytes(), err
+}
+func extractContentType(request *http.Request) string {
+	contenttype := request.Header.Get("Content-Type")
+	contenttype = strings.Split(contenttype, ";")[0]
+	return contenttype
+}
+
 func uploadPost(response http.ResponseWriter, request *http.Request) {
 	obj := prog.ConsumerObject{}
 	obj.Geo = prog.Geo{}
 
-	request.ParseMultipartForm(10 << 20) // 10 MB
-	fmt.Println("PostForm: ", request.PostForm)
-	for k, v := range request.PostForm {
-		fmt.Println(k, "  ", v)
-	}
+	/*for k, v := range request.Header {
+		fmt.Println("Header: Key= ", k, "   Value = ", v)
+	}*/
 
-	multipartFormData := request.MultipartForm
-	if multipartFormData == nil {
-		fmt.Println("Form is nil")
-		return
-	}
-	for k := range multipartFormData.File {
-		fmt.Println("Key: ", k)
-	}
-
-	if files, ok := multipartFormData.File["request"]; ok && len(files) > 0 {
-		file, err := files[0].Open()
+	contenttype := request.Header.Get("Content-Type")
+	contenttype = strings.Split(contenttype, ";")[0]
+	fmt.Println("Content-Type= ", contenttype)
+	switch contenttype {
+	case "multipart/form-data":
+		//if contenttype == "multipart/form-data" {
+		fmt.Println("Received 'multipart/form-data' request")
+		objs, err := PostMultipartFormData(response, request)
 		if err != nil {
 			errorResp(err, response)
 			return
 		}
-		defer file.Close()
-		size, err := getFilesize(file)
+		res, err := addObjects(objs, request.Host)
 		if err != nil {
-
-			errorResp(err, response)
-			return
-		}
-		buf := make([]byte, size)
-		n, err := file.Read(buf)
-		if err != nil {
-			errorResp(err, response)
-			return
-		}
-		fmt.Printf("Read %v bytes of request form", n)
-
-		err = yaml.Unmarshal(buf, obj)
-		if err != nil {
-			errorResp(err, response)
-			return
-		}
-		fmt.Println("Unmarshal request successfully")
-	}
-
-	err := ParseURL(&obj, request.URL.Query())
-	if err != nil {
-		errorResp(err, response)
-		return
-	}
-	if files, ok := multipartFormData.File["image"]; ok && len(files) > 0 {
-		//for k, v := range multipartFormData.File { //["attachments"] {
-		//if k == "image" && len(v) > 0 {
-		file, err := files[0].Open()
-		if err != nil {
-			errorResp(err, response)
-			return
-		}
-
-		//uploadedFile, _ := v[0].Open()
-		defer file.Close()
-		size, err := getFilesize(file)
-
-		fmt.Println("Filesize: ", size)
-		if err != nil {
-			errorResp(err, response)
-			return
-		}
-		buf := make([]byte, size)
-
-		fmt.Println(file)
-		n, err := file.Read(buf)
-		if err != nil {
-			errorResp(err, response)
-			return
-		}
-		obj.File.Binary = buf
-		fmt.Printf("Read %v bytes", n)
-		/*reader := bytes.NewReader(buf)
-		_, imgfmt, err := image.Decode(reader)
-
-		if err != nil {
+			errorResp(fmt.Errorf("Internal error occured."), response)
 			fmt.Println(err)
 			return
 		}
-		fmt.Println("Image format is: ", imgfmt)
 
-		uuid := uuid.New()
+		//response.Write([]byte("Files processed"))
 
-		filename := fmt.Sprintf("%s_%s.%s", timestamp.UTC().Format("20060102T150405"), uuid.String(), fileext)
-		*/
-		// then use the single uploadedFile however you want
-		// you may use its read method to get the file's bytes into a predefined slice,
-		//here am just using an anonymous slice for the example
-		//uploadedFile.Read([]byte{})
-
-		//uploadedFile.Close()
-
-		/*fmt.Println(v.Filename, ":", v.Size)
-		uploadedFile, _ := v.Open()
-		// then use the single uploadedFile however you want
-		// you may use its read method to get the file's bytes into a predefined slice,
-		//here am just using an anonymous slice for the example
-		uploadedFile.Read([]byte{})
-		uploadedFile.Close()*/
-		//fmt.Println(k, ": ", v)
-	}
-	if err = obj.Validate(); err != nil {
-		errorResp(err, response)
+		//json.MarshalIndent(res, "", "\t")
+		bytes, err := JSONMarshal(res)
+		if err != nil {
+			errorResp(fmt.Errorf("internal error occured.\n"), response)
+			fmt.Println(err)
+			return
+		}
+		response.WriteHeader(http.StatusCreated)
+		response.Header().Set("content-type", "application/json")
+		response.Write(bytes)
 		return
+
 	}
 
-	//fmt.Println(string(b))
-	fmt.Println("Processing request")
-	err = prog.ProcessRequest(&obj)
-	fmt.Println("Returning with error: ", err)
-	if err != nil {
-		errorResp(err, response)
-		return
-	}
-	err = SendRabbitMQReport(&obj)
-	if err != nil {
-		errorResp(err, response)
-		return
-	}
+	errorResp(fmt.Errorf("Content type not supported. Use 'multipart/formdata'\n"), response)
+	return
 
-	//respones.WriteHeader(http.StatusAccepted)
-	obj.File.Binary = nil
-	b, err := json.MarshalIndent(obj, "", "\t")
-	if err != nil {
-		errorResp(err, response)
-		return
-	}
-	response.WriteHeader(http.StatusCreated)
-	response.Write(b)
-	response.Write([]byte("\n"))
-	response.Write([]byte(prog.GetUrl(&obj) + "\n"))
 }
 
+func html(respones http.ResponseWriter, request *http.Request) {
+	fmt.Println("Serving POST HTML")
+	// set header
+	respones.Header().Set("Content-type", "text/html")
+	respones.Write(post_html)
+	//http.ServeFile(respones, request, "./post.html")
+}
 func upload(respones http.ResponseWriter, request *http.Request) {
 	/*
 		Example:
@@ -322,14 +389,21 @@ func Run() {
 	}
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)
+	//mux.Get("/html/simplepost", html)
 
-	mux.Get("/upload", upload)
+	mux.Get("/upload", html)
 	mux.Post("/upload", uploadPost)
+
+	mux.Route("/projects/{project}/files", func(r chi.Router) {
+		r.Delete("/{uuid}", files.DeleteHandle)
+	})
+	//mux.Delete("/files", deleteFile) make this dynamic /files/{uuid}
 	/*mux := http.NewServeMux()
 	mux.HandleFunc("/upload", upload)
 	mux.HandleFunc("/delete", delete)*/
-	fmt.Println("Starting to listen")
-	err = http.ListenAndServe(":3333", mux)
+	hostaddress := "0.0.0.0:3333"
+	fmt.Println("Starting to listen: " + hostaddress)
+	err = http.ListenAndServe(hostaddress, mux)
 	if err != nil {
 		log.Panic(err)
 	}
