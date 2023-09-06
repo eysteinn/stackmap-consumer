@@ -21,7 +21,8 @@ spec:
           - name: MAPDATA_ROOT
             value: /data/
           - name: PSQL_HOST
-            value: postgresql.default.svc.cluster.local
+            value: stackmap-db-postgresql.default.svc.cluster.local
+              #            value: postgresql.default.svc.cluster.local
           - name: PSQL_PORT
             value: "5432"
           - name: PSQL_USER
@@ -31,7 +32,7 @@ spec:
           - name: PSQL_PASS
             valueFrom:
               secretKeyRef:
-                name: postgresql
+                name: stackmap-db-postgresql
                 key: postgres-password
           - name: RABBITMQ_HOST
             value: stackmap-rabbitmq.default.svc.cluster.local

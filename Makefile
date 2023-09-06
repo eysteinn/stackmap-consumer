@@ -8,6 +8,8 @@ DOCKERIMAGE:=stackmap-consumer:$(BUILDVERSION)
 build-docker: build
 	docker build . -t $(DOCKERIMAGE)
 
+build-docker-base: 
+	docker build . -t stackmap-consumer:base --target build_base
 
 port-forward:
 	kubectl port-forward svc/postgresql 5432:5432
