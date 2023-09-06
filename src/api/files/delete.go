@@ -1,10 +1,14 @@
 package files
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"test/database"
+	"test/utils"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -27,7 +31,14 @@ func DeleteFile(project string, uuid string) error {
 		return err
 	}
 
-	fmt.Println("Location:", location)
+	data_root := utils.GetDataRoot()
+	fullpath := filepath.Join(data_root, location)
+	//fmt.Println("Location:", location)
+	fmt.Println("Deleting file: ", fullpath)
+	err = os.Remove(fullpath)
+	if err != nil {
+		fmt.Println(err)
+	}
 	return nil
 }
 
@@ -42,10 +53,25 @@ func DeleteHandle(response http.ResponseWriter, request *http.Request) {
 	fmt.Println("Project:", project)
 	fmt.Println("UUID:", uuid)
 
+	resp := map[string]interface{}{}
+	response.Header().Set("Content-Type", "application/json")
+	resp["success"] = true
+	resp["message"] = "project deleted succesfully"
+	retcode := http.StatusOK
+	resp["uuid"] = uuid
+	resp["project"] = project
+
 	err := DeleteFile(project, uuid)
 	if err != nil {
 		log.Println(err)
+		resp["message"] = fmt.Sprint("could not delete file with uuid '" + uuid + "'")
+		resp["success"] = false
+		retcode = http.StatusBadRequest
 	}
+
+	response.WriteHeader(retcode)
+	b, _ := json.Marshal(resp)
+	response.Write(b)
 	// First You begin a transaction with a call to db.Begin()
 	//ctx := context.Background()
 
