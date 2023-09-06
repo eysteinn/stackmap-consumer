@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	files "test/api/files"
+	"test/api/files"
 	"test/prog"
 	"time"
 
@@ -379,22 +379,41 @@ func upload(respones http.ResponseWriter, request *http.Request) {
 	//respones.WriteHeader(http.StatusAccepted)
 	respones.Write(b)
 }
-func delete(respones http.ResponseWriter, request *http.Request) {
+
+func Cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		next.ServeHTTP(w, r)
+	})
 }
+func filesRoutes() *chi.Mux {
+	router := chi.NewRouter()
+	router.Post("/upload", uploadPost)
+	router.Get("/projects/{project}/files", files.GetHandler)
+	router.Delete("/projects/{project}/files/{uuid}", files.DeleteHandle)
+	return router
+}
+
 func Run() {
 
 	err := prog.Psql.TryFill()
 	if err != nil {
 		log.Println(err)
 	}
-	mux := chi.NewRouter()
-	mux.Use(middleware.Logger)
+	router := chi.NewRouter()
+	router.Use(Cors)
+	router.Use(middleware.Logger)
+	router.Mount("/api/v1/", filesRoutes())
 	//mux.Get("/html/simplepost", html)
 
-	mux.Get("/upload", html)
-	mux.Post("/upload", uploadPost)
-	mux.Get("/projects/{project}/files", files.GetHandler)
-	mux.Delete("/projects/{project}/files/{uuid}", files.DeleteHandle)
+	/*router.Get("/upload", html)
+	router.Post("/upload", uploadPost)*/
+	/*router.Get("/projects/{project}/files", files.GetHandler)
+	router.Delete("/projects/{project}/files/{uuid}", files.DeleteHandle)*/
 	/*mux.Route("/projects/{project}/files", func(r chi.Router) {
 		r.Delete("/{uuid}", files.DeleteHandle)
 	})*/
@@ -404,7 +423,7 @@ func Run() {
 	mux.HandleFunc("/delete", delete)*/
 	hostaddress := "0.0.0.0:3333"
 	fmt.Println("Starting to listen: " + hostaddress)
-	err = http.ListenAndServe(hostaddress, mux)
+	err = http.ListenAndServe(hostaddress, router)
 	if err != nil {
 		log.Panic(err)
 	}

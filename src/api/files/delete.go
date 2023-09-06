@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"test/database"
+	"test/utils"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -28,7 +31,14 @@ func DeleteFile(project string, uuid string) error {
 		return err
 	}
 
-	fmt.Println("Location:", location)
+	data_root := utils.GetDataRoot()
+	fullpath := filepath.Join(data_root, location)
+	//fmt.Println("Location:", location)
+	fmt.Println("Deleting file: ", fullpath)
+	err = os.Remove(fullpath)
+	if err != nil {
+		fmt.Println(err)
+	}
 	return nil
 }
 

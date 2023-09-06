@@ -372,10 +372,11 @@ func ProcessRequest(obj *ConsumerObject) error {
 
 	filename := fmt.Sprintf("%s_%s.%s", timestamp.UTC().Format("20060102T150405"), uuid.String(), fileext)
 
-	data_root := os.Getenv("MAPDATA_ROOT")
+	/*data_root := os.Getenv("MAPDATA_ROOT")
 	if data_root == "" {
 		data_root = "/data/"
-	}
+	}*/
+	data_root := utils.GetDataRoot()
 	/*raster_root := os.Getenv("RASTER_ROOT")
 	if raster_root == "" {
 		raster_root = "/data/raster/"
