@@ -393,6 +393,7 @@ func Cors(next http.Handler) http.Handler {
 func filesRoutes() *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/upload", uploadPost)
+	router.Post("/projects/{project}/files", uploadPost)
 	router.Get("/projects/{project}/files", files.GetHandler)
 	router.Delete("/projects/{project}/files/{uuid}", files.DeleteHandle)
 	return router

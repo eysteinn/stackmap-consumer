@@ -59,6 +59,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 
 	files, err := GetFiles(project)
 	if err != nil {
+		fmt.Println(err)
 		resp["success"] = false
 		resp["message"] = "unable to get files"
 		retcode = http.StatusBadRequest
