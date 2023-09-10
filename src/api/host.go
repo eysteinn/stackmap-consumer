@@ -287,6 +287,7 @@ func extractContentType(request *http.Request) string {
 }
 
 func uploadPost(response http.ResponseWriter, request *http.Request) {
+	fmt.Println("Post request")
 	obj := prog.ConsumerObject{}
 	obj.Geo = prog.Geo{}
 
@@ -393,6 +394,7 @@ func Cors(next http.Handler) http.Handler {
 func filesRoutes() *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/upload", uploadPost)
+	router.Post("/projects/{project}/files", uploadPost)
 	router.Get("/projects/{project}/files", files.GetHandler)
 	router.Delete("/projects/{project}/files/{uuid}", files.DeleteHandle)
 	return router
