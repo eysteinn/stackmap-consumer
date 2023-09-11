@@ -257,19 +257,23 @@ func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
 	}
 	fmt.Println("3")*/
 
-	rows, err := db.Query(cmd)
-	defer rows.Close()
-	for rows.Next() {
-		var uuid string
-		if err := rows.Scan(&uuid); err != nil {
-			log.Fatal(err)
-		}
-		obj.UUID = uuid
-		fmt.Println(uuid)
-	}
-	//tx.Commit()
+	row := db.QueryRow(cmd)
+	return row.Scan(&obj.UUID)
 
-	return nil
+	/*
+		rows, err := db.Query(cmd)
+		defer rows.Close()
+		for rows.Next() {
+			var uuid string
+			if err := rows.Scan(&uuid); err != nil {
+				log.Fatal(err)
+			}
+			obj.UUID = uuid
+			fmt.Println(uuid)
+		}
+		//tx.Commit()
+
+		return nil*/
 }
 func downloadFile(out *os.File, url string) (err error) {
 	// Get the data
