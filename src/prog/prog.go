@@ -160,9 +160,71 @@ func NewShape4325(inputFile string) (*Shape, error) {
 	transform := gdal.CreateCoordinateTransform(source, target)
 	defer transform.Destroy()
 
-	const npts = 5
+	xpts := []float64{}
+	ypts := []float64{}
+	xmrg := int(0.05 * float64(ds.RasterXSize()))
+	ymrg := int(0.05 * float64(ds.RasterYSize()))
+	parts := 5
+
+	var xtmp, ytmp float64
+
+	xtmp, ytmp = transf(tfm, 0-xmrg, 0-ymrg)
+	xpts = append(xpts, xtmp)
+	ypts = append(ypts, ytmp)
+
+	for i := 1; i < parts; i++ {
+		dx := ds.RasterXSize() * i / parts
+		xtmp, ytmp = transf(tfm, dx, 0-ymrg)
+		xpts = append(xpts, xtmp)
+		ypts = append(ypts, ytmp)
+	}
+
+	xtmp, ytmp = transf(tfm, ds.RasterXSize()+xmrg, 0-ymrg)
+	xpts = append(xpts, xtmp)
+	ypts = append(ypts, ytmp)
+
+	for i := 1; i < parts; i++ {
+		dy := ds.RasterYSize() * i / parts
+		xtmp, ytmp = transf(tfm, ds.RasterXSize()+xmrg, dy)
+		xpts = append(xpts, xtmp)
+		ypts = append(ypts, ytmp)
+	}
+
+	xtmp, ytmp = transf(tfm, ds.RasterXSize()+xmrg, ds.RasterYSize()+ymrg)
+	xpts = append(xpts, xtmp)
+	ypts = append(ypts, ytmp)
+
+	for i := 1; i < parts; i++ {
+		dx := ds.RasterXSize() - ds.RasterXSize()*i/parts
+		xtmp, ytmp = transf(tfm, dx, ds.RasterYSize()+ymrg)
+		xpts = append(xpts, xtmp)
+		ypts = append(ypts, ytmp)
+	}
+
+	xtmp, ytmp = transf(tfm, 0-xmrg, ds.RasterYSize()+ymrg)
+	xpts = append(xpts, xtmp)
+	ypts = append(ypts, ytmp)
+
+	for i := 1; i < parts; i++ {
+		dy := ds.RasterYSize() - ds.RasterYSize()*i/parts
+		xtmp, ytmp = transf(tfm, 0-xmrg, dy)
+		xpts = append(xpts, xtmp)
+		ypts = append(ypts, ytmp)
+	}
+
+	xtmp, ytmp = transf(tfm, 0-xmrg, 0-ymrg)
+	xpts = append(xpts, xtmp)
+	ypts = append(ypts, ytmp)
+
+	npts := len(xpts)
+	xpoints := xpts
+	ypoints := ypts
+
+	zpoints := make([]float64, npts)
+	/*const npts = 5
 	xpoints := [npts]float64{}
 	ypoints := [npts]float64{}
+
 	// TODO:More points!
 	xpoints[0], ypoints[0] = transf(tfm, 0, 0)
 	xpoints[1], ypoints[1] = transf(tfm, ds.RasterXSize(), 0)
@@ -170,7 +232,7 @@ func NewShape4325(inputFile string) (*Shape, error) {
 	xpoints[3], ypoints[3] = transf(tfm, 0, ds.RasterYSize())
 	xpoints[4], ypoints[4] = transf(tfm, 0, 0)
 
-	zpoints := [npts]float64{}
+	zpoints := [npts]float64{}*/
 	for idx := 0; idx < npts; idx++ {
 		zpoints[idx] = 0
 	}
