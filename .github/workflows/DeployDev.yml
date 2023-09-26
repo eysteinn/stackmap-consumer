@@ -43,4 +43,5 @@ jobs:
       - name: Deploy via SSH
         run: |
           echo "Repo: ${{ github.repository }}"
-          ssh ${{ secrets.DEV_USER_IP }} -- "date > ~/test.txt"
+          echo "https://raw.githubusercontent.com/${{ github.repository }}//main/deployment.yaml"
+          ssh ${{ secrets.DEV_USER_IP }} -p ${{ secrets.DEV_PORT }} -- "date > ~/test.txt"
