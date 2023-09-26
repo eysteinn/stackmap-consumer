@@ -97,4 +97,9 @@ spec:
         - name: stackmap-consumer
           port: 3333
 
+    - match: Host(`stackmap.clouds.is`) && PathPrefix(`/api/v1/projects/{[A-Za-z0-9_]+}/products/{[A-Za-z0-9_]+}/files`)
+      kind: Rule
+      services:
+        - name: stackmap-consumer
+          port: 3333
 
