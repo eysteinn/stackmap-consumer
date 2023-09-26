@@ -39,6 +39,6 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa.pub
           ssh-keyscan -H ${{ secrets.IP }} >> ~/.ssh/known_hosts
-      - name: Deploy via SSH
-        run: |
-          ssh ${{ secrets.IP }} -- "date > ~/test.txt"
+      #- name: Deploy via SSH
+      #  run: |
+      #    ssh ${{ secrets.IP }} -- "date > ~/test.txt"
