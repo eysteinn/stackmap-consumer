@@ -19,18 +19,7 @@ env:
 jobs:
   deploy-dev:
     runs-on: ubuntu-latest
-    # Sets the permissions granted to the `PAT_GITHUB` for the actions in this job.
-    #permissions:
-      #contents: read
-      #packages: read
-      # 
     steps:
-      #- name: Log in to the Container registry
-      #  uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
-      #  with:
-      #    registry: ${{ env.REGISTRY }}
-      #    username: ${{ github.actor }}
-      #    password: ${{ secrets.PAT_GITHUB }}
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh/
