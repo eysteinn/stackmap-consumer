@@ -1,0 +1,45 @@
+#
+name: Deploy to DEV
+
+# Configures this workflow to run every time a change is pushed to the branch called `release`.
+on:
+  #push:
+  #  branches: ['main']
+  #pull_request:
+  #  branches: main
+  #  types: closed
+  workflow_dispatch: {}
+  
+# Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    # Sets the permissions granted to the `PAT_GITHUB` for the actions in this job.
+    permissions:
+      contents: read
+      packages: read
+      # 
+    steps:
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT_GITHUB }}
+      - name: Setup ssh
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_PRIVATE_KEY" > ../private.key
+          sudo chmod 600 ../private.key
+          echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{secrets.SSH_PRIVATE_KEY}}
+          SSH_KNOWN_HOSTS: ${{secrets.SSH_KNOWN_HOSTS}}
+          SSH_KEY_PATH: ${{ github.workspace }}/../private.key
+        
