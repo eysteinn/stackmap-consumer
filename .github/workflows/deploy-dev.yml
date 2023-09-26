@@ -4,7 +4,7 @@ name: Deploy to DEV
 on:
   workflow_dispatch: {}
   workflow_run:
-    workflows: [Push to GHCR]
+    workflows: ["Push to GHCR"]
     types:
       - complete
       
