@@ -34,12 +34,11 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh/
-          echo "${{ secrets.SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
-          echo "${{ secrets.SSH_PUB_KEY }}" > ~/.ssh/id_rsa.pub
+          echo "${{ secrets.DEV_SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.DEV_SSH_PUB_KEY }}" > ~/.ssh/id_rsa.pub
           chmod 600 ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa.pub
-          ssh-keyscan -H stackmap.clouds.is >> ~/.ssh/known_hosts
-          #ssh-keyscan -H ${{ secrets.IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.DEV_IP }} -p ${{ secrets.DEV_PORT }} >> ~/.ssh/known_hosts
       #- name: Deploy via SSH
       #  run: |
       #    ssh ${{ secrets.IP }} -- "date > ~/test.txt"
