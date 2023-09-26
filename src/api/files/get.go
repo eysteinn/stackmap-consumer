@@ -1,6 +1,7 @@
 package files
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,7 +16,7 @@ type FileInfo struct {
 	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
-func GetFiles(project string) ([]FileInfo, error) {
+func GetFiles(project string, product string) ([]FileInfo, error) {
 
 	files := []FileInfo{}
 
@@ -28,10 +29,16 @@ func GetFiles(project string) ([]FileInfo, error) {
 	if err != nil {
 		return files, err
 	}
-	cmd := "select uuid from " + schema + ".raster_geoms;"
 
-	rows, err := db.Query(cmd)
+	var rows *sql.Rows
 
+	if product == "" {
+		cmd := "select uuid from " + schema + ".raster_geoms;"
+		rows, err = db.Query(cmd)
+	} else {
+		cmd := "SELECT uuid FROM " + schema + ".raster_geoms WHERE product='$1';"
+		rows, err = db.Query(cmd, product)
+	}
 	if err != nil {
 		return files, err
 	}
@@ -50,6 +57,7 @@ func GetFiles(project string) ([]FileInfo, error) {
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
 	project := chi.URLParam(r, "project")
+	product := chi.URLParam(r, "product")
 	fmt.Println("Project:", project)
 
 	resp := map[string]interface{}{}
@@ -57,7 +65,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	resp["message"] = "projects fetched succesfully"
 	retcode := http.StatusOK
 
-	files, err := GetFiles(project)
+	files, err := GetFiles(project, product)
 	if err != nil {
 		resp["success"] = false
 		resp["message"] = "unable to get files"
