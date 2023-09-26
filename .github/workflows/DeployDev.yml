@@ -38,7 +38,7 @@ jobs:
           echo "${{ secrets.DEV_SSH_PUB_KEY }}" > ~/.ssh/id_rsa.pub
           chmod 600 ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa.pub
-          ssh-keyscan -p 8680 -H stackmap.clouds.is >> ~/.ssh/known_hosts
+          ssh-keyscan -p 8680 -H ${{ secrets.DEV_IP }} >> ~/.ssh/known_hosts
           #ssh-keyscan -H ${{ secrets.DEV_IP }} -p ${{ secrets.DEV_PORT }} >> ~/.ssh/known_hosts
       #- name: Deploy via SSH
       #  run: |
