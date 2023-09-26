@@ -44,5 +44,6 @@ jobs:
         run: |
           echo "Repo: ${{ github.repository }}"
           echo "https://raw.githubusercontent.com/${{ github.repository }}/main/deployment.yaml"
+          REPO=${{ github.event.repository.name }}
           DEP="https://raw.githubusercontent.com/${{ github.repository }}/main/deployment.yaml"
-          ssh ${{ secrets.DEV_USER_IP }} -p ${{ secrets.DEV_PORT }} -- "kubectl delete deploy stackmap-consume; kubectl apply -f $DEP"
+          ssh ${{ secrets.DEV_USER_IP }} -p ${{ secrets.DEV_PORT }} -- "kubectl delete deploy $REPO; kubectl apply -f $DEP"
