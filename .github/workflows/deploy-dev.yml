@@ -1,0 +1,40 @@
+#
+name: Deploy to DEV
+
+# Configures this workflow to run every time a change is pushed to the branch called `release`.
+on:
+  #push:
+  #  branches: ['main']
+  #pull_request:
+  #  branches: main
+  #  types: closed
+  workflow_dispatch: {}
+  
+# Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.DEV_SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.DEV_SSH_PUB_KEY }}" > ~/.ssh/id_rsa.pub
+          chmod 600 ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa.pub
+          ssh-keyscan -p ${{ secrets.DEV_PORT }} -H ${{ secrets.DEV_IP }} >> ~/.ssh/known_hosts
+          #ssh-keyscan -H ${{ secrets.DEV_IP }} -p ${{ secrets.DEV_PORT }} >> ~/.ssh/known_hosts
+      - name: Deploy via SSH
+        run: |
+          #REPO=${{ github.event.repository.name }}
+          #DEP="https://raw.githubusercontent.com/${{ github.repository }}/main/deployment.yaml"
+          ssh ${{ secrets.DEV_USER_IP }} -p ${{ secrets.DEV_PORT }} -- "kubectl delete deploy $REPO; kubectl apply -f $DEP"
+        env:
+          DEP: https://raw.githubusercontent.com/${{ github.repository }}/main/deployment.yaml
+          REPO: ${{ github.event.repository.name }}
+          
