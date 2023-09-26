@@ -40,6 +40,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa.pub
           ssh-keyscan -p ${{ secrets.DEV_PORT }} -H ${{ secrets.DEV_IP }} >> ~/.ssh/known_hosts
           #ssh-keyscan -H ${{ secrets.DEV_IP }} -p ${{ secrets.DEV_PORT }} >> ~/.ssh/known_hosts
-      #- name: Deploy via SSH
-      #  run: |
-      #    ssh ${{ secrets.IP }} -- "date > ~/test.txt"
+      - name: Deploy via SSH
+        run: |
+          echo "Repo: ${{ github.repository }}"
+          ssh ${{ secrets.DEV_USER_IP }} -- "date > ~/test.txt"
