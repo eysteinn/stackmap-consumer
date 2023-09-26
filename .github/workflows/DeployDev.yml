@@ -20,17 +20,17 @@ jobs:
   deploy-dev:
     runs-on: ubuntu-latest
     # Sets the permissions granted to the `PAT_GITHUB` for the actions in this job.
-    permissions:
-      contents: read
-      packages: read
+    #permissions:
+      #contents: read
+      #packages: read
       # 
     steps:
-      - name: Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.PAT_GITHUB }}
+      #- name: Log in to the Container registry
+      #  uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+      #  with:
+      #    registry: ${{ env.REGISTRY }}
+      #    username: ${{ github.actor }}
+      #    password: ${{ secrets.PAT_GITHUB }}
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh/
@@ -42,8 +42,6 @@ jobs:
           #ssh-keyscan -H ${{ secrets.DEV_IP }} -p ${{ secrets.DEV_PORT }} >> ~/.ssh/known_hosts
       - name: Deploy via SSH
         run: |
-          echo "Repo: ${{ github.repository }}"
-          echo "https://raw.githubusercontent.com/${{ github.repository }}/main/deployment.yaml"
           REPO=${{ github.event.repository.name }}
           DEP="https://raw.githubusercontent.com/${{ github.repository }}/main/deployment.yaml"
           ssh ${{ secrets.DEV_USER_IP }} -p ${{ secrets.DEV_PORT }} -- "kubectl delete deploy $REPO; kubectl apply -f $DEP"
