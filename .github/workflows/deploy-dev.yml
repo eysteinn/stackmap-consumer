@@ -6,7 +6,7 @@ on:
   workflow_run:
     workflows: [Push to GHCR]
     types:
-      - complete
+      - completed
       
 jobs:
   deploy-dev:
