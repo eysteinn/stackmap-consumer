@@ -396,7 +396,7 @@ func filesRoutes() *chi.Mux {
 	router.Post("/upload", uploadPost)
 	router.Post("/projects/{project}/files", uploadPost)
 	router.Get("/projects/{project}/files", files.GetHandler)
-	router.Get("/projects/{project}/projects/{product}files", files.GetHandler)
+	router.Get("/projects/{project}/products/{product}/files", files.GetHandler)
 
 	router.Delete("/projects/{project}/files/{uuid}", files.DeleteHandle)
 	return router
