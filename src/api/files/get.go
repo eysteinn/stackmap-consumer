@@ -59,6 +59,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	project := chi.URLParam(r, "project")
 	product := chi.URLParam(r, "product")
 	fmt.Println("Project:", project)
+	fmt.Println("Product:", product)
 
 	resp := map[string]interface{}{}
 	resp["success"] = true
@@ -67,6 +68,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 
 	files, err := GetFiles(project, product)
 	if err != nil {
+		fmt.Println(err)
 		resp["success"] = false
 		resp["message"] = "unable to get files"
 		retcode = http.StatusBadRequest
