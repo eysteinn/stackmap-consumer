@@ -14,6 +14,7 @@ import (
 type FileInfo struct {
 	UUID      string     `json:"uuid,omitempty"`
 	Timestamp *time.Time `json:"timestamp,omitempty"`
+	Product   string     `json:"product,omitempty"`
 }
 
 func GetFiles(project string, product string) ([]FileInfo, error) {
@@ -33,25 +34,27 @@ func GetFiles(project string, product string) ([]FileInfo, error) {
 	var rows *sql.Rows
 
 	if product == "" {
-		cmd := "select uuid from " + schema + ".raster_geoms;"
+		cmd := "select uuid, product from " + schema + ".raster_geoms;"
 		rows, err = db.Query(cmd)
 	} else {
-		cmd := "SELECT uuid FROM " + schema + ".raster_geoms WHERE product='$1';"
-		rows, err = db.Query(cmd, product)
+		rows, err = db.Query("SELECT uuid, product FROM "+schema+".raster_geoms WHERE product = $1;", product)
 	}
 	if err != nil {
+		fmt.Println(err)
 		return files, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		file := FileInfo{}
-		err = rows.Scan(&file.UUID)
+		err = rows.Scan(&file.UUID, &file.Product)
 		if err != nil {
 			return files, err
 		}
+		fmt.Println("UUID:", file.UUID, "\tProduct:", file.Product)
 		files = append(files, file)
 	}
+	fmt.Println("finished")
 	return files, nil
 }
 
