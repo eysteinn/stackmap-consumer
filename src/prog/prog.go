@@ -21,6 +21,7 @@ import (
 
 	"github.com/lukeroth/gdal"
 
+	"test/database"
 	"test/utils"
 )
 
@@ -273,8 +274,24 @@ func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
 	}
 	pairs := strings.Join(pair[:], ",")
 
-	cmd := fmt.Sprintf("insert into project_%s.raster_geoms (location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))')) returning uuid;",
-		obj.Project, location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, pairs)
+	schema, err := database.SanitizeSchemaName("project_" + obj.Project)
+	if err != nil {
+		return err
+	}
+
+	{
+		cmd := strings.ReplaceAll("INSERT INTO {{SCHEMA}}.files (filename, metadata) VALUES ($1, $2) RETURNING uuid;", "{{SCHEMA}}", schema)
+		fmt.Println("Inserting into files:", cmd)
+		row := db.QueryRow(cmd, obj.File.Name, "{}")
+		err = row.Scan(&obj.UUID)
+		if err != nil {
+			return err
+		}
+	}
+
+	//cmd := fmt.Sprintf("insert into project_%s.raster_geoms (location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))')) returning uuid;",
+	cmd := fmt.Sprintf("insert into project_%s.raster_geoms (uuid, location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))'));",
+		obj.Project, obj.UUID, location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, pairs)
 	fmt.Println("Executing query")
 	fmt.Println(cmd)
 	//res, err := db.Exec(cmd)
@@ -319,8 +336,11 @@ func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
 	}
 	fmt.Println("3")*/
 
-	row := db.QueryRow(cmd)
-	return row.Scan(&obj.UUID)
+	//row := db.QueryRow(cmd)
+	_, err = db.Exec(cmd)
+
+	//return row.Scan(&obj.UUID)
+	return err
 
 	/*
 		rows, err := db.Query(cmd)
