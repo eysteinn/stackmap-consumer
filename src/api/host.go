@@ -287,7 +287,7 @@ func extractContentType(request *http.Request) string {
 }
 
 func uploadPost(response http.ResponseWriter, request *http.Request) {
-	fmt.Println("Post request")
+	log.Println("Post request")
 	obj := prog.ConsumerObject{}
 	obj.Geo = prog.Geo{}
 
