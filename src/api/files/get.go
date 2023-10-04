@@ -15,6 +15,7 @@ type FileInfo struct {
 	UUID      string     `json:"uuid,omitempty"`
 	Timestamp *time.Time `json:"timestamp,omitempty"`
 	Product   string     `json:"product,omitempty"`
+	Filename  string     `json:"filename,omitempty"`
 }
 
 func GetFiles(project string, product string) ([]FileInfo, error) {
@@ -32,12 +33,19 @@ func GetFiles(project string, product string) ([]FileInfo, error) {
 	}
 
 	var rows *sql.Rows
-
+	/*
+			select f.uuid, f.filename, r.product from project_vedur.raster_geoms r join project_vedur.files f on r.uuid=f.uuid whe
+		re r.product='viirs-granule-true-color';
+	*/
 	if product == "" {
-		cmd := "select uuid, product from " + schema + ".raster_geoms;"
+		//cmd := "select uuid, product from " + schema + ".raster_geoms;"
+		cmd := "select f.uuid, f.filename, r.product from " + schema + ".raster_geoms r join project_vedur.files f on r.uuid=f.uuid;"
 		rows, err = db.Query(cmd)
 	} else {
-		rows, err = db.Query("SELECT uuid, product FROM "+schema+".raster_geoms WHERE product = $1;", product)
+		cmd := "select f.uuid, f.filename, r.product from " + schema + ".raster_geoms r join project_vedur.files f on r.uuid=f.uuid where r.product=$1;"
+		rows, err = db.Query(cmd, product)
+
+		//rows, err = db.Query("SELECT uuid, product FROM "+schema+".raster_geoms WHERE product = $1;", product)
 	}
 	if err != nil {
 		fmt.Println(err)
@@ -47,7 +55,7 @@ func GetFiles(project string, product string) ([]FileInfo, error) {
 
 	for rows.Next() {
 		file := FileInfo{}
-		err = rows.Scan(&file.UUID, &file.Product)
+		err = rows.Scan(&file.UUID, &file.Filename, &file.Product)
 		if err != nil {
 			return files, err
 		}
