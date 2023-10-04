@@ -26,6 +26,11 @@ kind-deploy: kind-load
 k3s-deploy:
 	docker save $(DOCKERIMAGE) | sudo k3s ctr images import -
 
+k-delete:
+	kubectl delete deploy stackmap-consumer
+
+k-deploy:
+	kubectl apply -f https://raw.githubusercontent.com/eysteinn/stackmap-consumer/main/deployment.yaml
 
 
 swagger-serve:
