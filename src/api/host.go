@@ -37,7 +37,7 @@ func SendRabbitMQReport(obj *prog.ConsumerObject) error {
 	fmt.Println("Sending to rabbitmq")
 	notification := RabbitMQNotification{}
 	notification.Product = obj.Product
-	notification.Timestamp = obj.Timestamp.Format("20060102T150405")
+	notification.Timestamp = obj.GetTimeStr() //obj.Timestamp.Format("20060102T150405")
 	passw := os.Getenv("RABBITMQ_PASS")
 	host := os.Getenv("RABBITMQ_HOST")
 	url := fmt.Sprintf("amqp://user:%s@%s:5672/", passw, host)
@@ -95,14 +95,14 @@ func SendRabbitMQReport(obj *prog.ConsumerObject) error {
 }
 
 func ParseURL(obj *prog.ConsumerObject, val url.Values) error {
-	var err error
 
 	timestr := val.Get("timestamp")
 	if timestr != "" {
-		obj.Timestamp, err = time.Parse("20060102T150405", timestr)
+		tmp, err := time.Parse("20060102T150405", timestr)
 		if err != nil {
 			return err
 		}
+		obj.Timestamp = &tmp
 	}
 	if val.Has("product") {
 		obj.Product = val.Get("product")
@@ -182,7 +182,7 @@ func PostMultipartFormData(response http.ResponseWriter, request *http.Request) 
 			if timestr != "" {
 				layout := "2006-01-02T15:04"
 				if parsedTime, err := time.Parse(layout, timestr); err == nil {
-					obj.Timestamp = parsedTime
+					obj.Timestamp = &parsedTime
 				}
 			}
 			obj.File.Name = files[idx].Filename
@@ -242,7 +242,7 @@ func addObjects(objs []prog.ConsumerObject, host string) ([]*ResultObj, error) {
 		res := ResultObj{
 			Product:  obj.Product,
 			Project:  obj.Project,
-			DateTime: &obj.Timestamp,
+			DateTime: obj.Timestamp,
 			Success:  false,
 		}
 		ret = append(ret, &res)
