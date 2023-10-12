@@ -54,9 +54,9 @@ type Geo struct {
 }
 
 type ConsumerObject struct {
-	Product   string    `yaml:"product"`
-	Project   string    `yaml:"project"`
-	Timestamp time.Time `yaml:"timestamp"`
+	Product   string     `yaml:"product"`
+	Project   string     `yaml:"project"`
+	Timestamp *time.Time `yaml:"timestamp"`
 	File      struct {
 		Local  *Local `yaml:"local"`
 		Web    *Web   `yaml:"web"`
@@ -69,6 +69,13 @@ type ConsumerObject struct {
 	}
 	Geo  Geo    `yaml:"geo"`
 	UUID string `yaml:"uuid"`
+}
+
+func (o *ConsumerObject) GetTimeStr() string {
+	if o.Timestamp != nil {
+		return o.Timestamp.UTC().Format(time.RFC3339)
+	}
+	return ""
 }
 
 func (o *ConsumerObject) Validate() error {
@@ -289,9 +296,10 @@ func PushToPSQL(location string, obj *ConsumerObject, passw string) error {
 		}
 	}
 
+	timestr := obj.GetTimeStr()
 	//cmd := fmt.Sprintf("insert into project_%s.raster_geoms (location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))')) returning uuid;",
 	cmd := fmt.Sprintf("insert into project_%s.raster_geoms (uuid, location, src_srs, datetime, product, geom) values ('%s','%s','%s','%s','%s', ST_GeomFromText('MULTIPOLYGON (((%s)))'));",
-		obj.Project, obj.UUID, location, obj.Geo.SRS, obj.Timestamp.UTC().Format(time.RFC3339), obj.Product, pairs)
+		obj.Project, obj.UUID, location, obj.Geo.SRS, timestr, obj.Product, pairs)
 	fmt.Println("Executing query")
 	fmt.Println(cmd)
 	//res, err := db.Exec(cmd)
@@ -432,6 +440,24 @@ func ProcessRequest(obj *ConsumerObject) error {
 		imagefilepath = obj.File.Local.Path
 	}
 	fmt.Println("Filepath: ", imagefilepath)
+	if obj.Timestamp == nil {
+		fmt.Println("Trying to get time from file:", imagefilepath)
+		ds, err := gdal.Open(imagefilepath, gdal.ReadOnly)
+		if err != nil {
+			return err
+		}
+		defer ds.Close()
+
+		dateTimeMetadata := ds.MetadataItem("TIFFTAG_DATETIME", "")
+		layout := "2006:01:02 15:04:05"
+		tmp, err := time.Parse(layout, dateTimeMetadata)
+		if err == nil {
+			obj.Timestamp = &tmp
+			fmt.Println("Extracted time: ", obj.Timestamp)
+		} else {
+			fmt.Println("Error parsing time:", err)
+		}
+	}
 	if obj.Geo.Shape == nil {
 		fmt.Println("Getting shape from:  ", imagefilepath)
 		shape, err := NewShape4325(imagefilepath)
@@ -453,10 +479,11 @@ func ProcessRequest(obj *ConsumerObject) error {
 		}
 	}
 
-	timestamp := obj.Timestamp
+	//timestamp := obj.Timestamp
 	uuid := uuid.New()
 
-	filename := fmt.Sprintf("%s_%s.%s", timestamp.UTC().Format("20060102T150405"), uuid.String(), fileext)
+	//filename := fmt.Sprintf("%s_%s.%s", timestamp.UTC().Format("20060102T150405"), uuid.String(), fileext)
+	filename := fmt.Sprintf("%s.%s", uuid.String(), fileext)
 
 	/*data_root := os.Getenv("MAPDATA_ROOT")
 	if data_root == "" {
@@ -513,7 +540,7 @@ func GetWMSUrl(obj *ConsumerObject, host string) string {
 	//http://localhost:9080/?map=/mapfiles/vedur/rasters.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=44.67992280194039,-48.1384265209119,57.90268443794766,-2.745601176530886&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=viirs-granule-true-color&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true
 	//url := fmt.Sprintf("http://localhost:9080/cgi-bin/mapserv?program=mapserv&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=%s&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=%s&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true&TIME=%s", bbox, obj.Product, obj.Timestamp.UTC().Format(time.RFC3339))
 
-	ret := fmt.Sprintf("%s/services/wms?map=/mapfiles/%s/rasters.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=%s&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=%s&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true&TIME=%s", host, obj.Project, bbox, obj.Product, obj.Timestamp.UTC().Format(time.RFC3339))
+	ret := fmt.Sprintf("%s/services/wms?map=/mapfiles/%s/rasters.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=%s&CRS=EPSG:4326&WIDTH=1024&HEIGHT=768&LAYERS=%s&STYLES=,&CLASSGROUP=black&FORMAT=image/png&TRANSPARENT=true&TIME=%s", host, obj.Project, bbox, obj.Product, obj.GetTimeStr())
 	return ret
 }
 func Run() error {
