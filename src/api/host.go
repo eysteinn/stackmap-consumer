@@ -393,12 +393,16 @@ func Cors(next http.Handler) http.Handler {
 }
 func filesRoutes() *chi.Mux {
 	router := chi.NewRouter()
-	router.Post("/upload", uploadPost)
+	//router.Post("/upload", uploadPost)
 	router.Post("/projects/{project}/files", uploadPost)
+
 	router.Get("/projects/{project}/files", files.GetHandler)
 	router.Get("/projects/{project}/products/{product}/files", files.GetHandler)
 
 	router.Delete("/projects/{project}/files/{uuid}", files.DeleteHandle)
+
+	//router.Options("/projects/{project}/files", uploadPost)
+
 	return router
 }
 
@@ -409,8 +413,8 @@ func Run() {
 		log.Println(err)
 	}
 	router := chi.NewRouter()
-	router.Use(Cors)
 	router.Use(middleware.Logger)
+	router.Use(Cors)
 	router.Mount("/api/v1/", filesRoutes())
 	//mux.Get("/html/simplepost", html)
 

@@ -39,10 +39,10 @@ func GetFiles(project string, product string) ([]FileInfo, error) {
 	*/
 	if product == "" {
 		//cmd := "select uuid, product from " + schema + ".raster_geoms;"
-		cmd := "select f.uuid, f.filename, r.product from " + schema + ".raster_geoms r join project_vedur.files f on r.uuid=f.uuid;"
+		cmd := "select f.uuid, f.filename, r.product, r.datetime from " + schema + ".raster_geoms r join project_vedur.files f on r.uuid=f.uuid;"
 		rows, err = db.Query(cmd)
 	} else {
-		cmd := "select f.uuid, f.filename, r.product from " + schema + ".raster_geoms r join project_vedur.files f on r.uuid=f.uuid where r.product=$1;"
+		cmd := "select f.uuid, f.filename, r.product, r.datetime from " + schema + ".raster_geoms r join project_vedur.files f on r.uuid=f.uuid where r.product=$1;"
 		rows, err = db.Query(cmd, product)
 
 		//rows, err = db.Query("SELECT uuid, product FROM "+schema+".raster_geoms WHERE product = $1;", product)
@@ -55,11 +55,11 @@ func GetFiles(project string, product string) ([]FileInfo, error) {
 
 	for rows.Next() {
 		file := FileInfo{}
-		err = rows.Scan(&file.UUID, &file.Filename, &file.Product)
+		err = rows.Scan(&file.UUID, &file.Filename, &file.Product, &file.Timestamp)
 		if err != nil {
 			return files, err
 		}
-		fmt.Println("UUID:", file.UUID, "\tProduct:", file.Product)
+		fmt.Println("UUID:", file.UUID, "\tProduct:", file.Product, "\tTimestamp:", file.Timestamp)
 		files = append(files, file)
 	}
 	fmt.Println("finished")
