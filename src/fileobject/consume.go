@@ -47,7 +47,7 @@ func Consume(obj *ConsumerObject) error {
 	fullpath := filepath.Join(data_root, relpath)
 	fulldir := filepath.Join(data_root, reldir)
 
-	err = database.WriteToFilesTable(obj.Meta.Project, obj.Meta.UUID.String(), relpath, "{}")
+	err = database.WriteToFilesTable(obj.Meta.Project, obj.Meta.UUID.String(), obj.Meta.Filename, "{}")
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func Consume(obj *ConsumerObject) error {
 	//log.Println("Copygin file:", fullpath, "=>", fullpath)
 
 	log.Println("Copyin file:", obj.File.Local.Path, "=>", fullpath)
-	err = utils.CopyFile(fullpath, fullpath)
+	err = utils.CopyFile(obj.File.Local.Path, fullpath)
 	if err != nil {
 		return err
 	}
