@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"test/fileobject"
+	"test/rabbitmq"
 	"time"
 )
 
@@ -73,18 +74,25 @@ func PostHandler(response http.ResponseWriter, request *http.Request) {
 		if err != nil {
 			fmt.Println(err)
 			resp["success"] = false
-			resp["message"] = "unable to get files"
-			retcode = http.StatusBadRequest
+			resp["message"] = "unable to parse form"
+			retcode = http.StatusInternalServerError
 		}
 
 		err = fileobject.Consume(objs)
 		if err != nil {
 			fmt.Println(err)
 			resp["success"] = false
-			resp["message"] = "unable to get files"
-			retcode = http.StatusBadRequest
+			resp["message"] = "unable to consume file"
+			retcode = http.StatusInternalServerError
 		}
 
+		err = rabbitmq.SendRabbitMQReport(objs)
+		if err != nil {
+			fmt.Println(err)
+			resp["success"] = false
+			resp["message"] = "unable to consume file"
+			retcode = http.StatusInternalServerError
+		}
 		/*res, err := addObjects(objs, request.Host)
 		if err != nil {
 			errorResp(fmt.Errorf("Internal error occured."), response)
